@@ -1,0 +1,1 @@
+Keeps app/assets in git; tools/brand.py writes logo.png here at build time.
