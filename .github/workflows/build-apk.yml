@@ -1,0 +1,138 @@
+name: Build HyDr0 Tools APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_name:
+        description: "App name shown on the TV/phone"
+        required: true
+        default: "HyDr0 Tools"
+      package_id:
+        description: "Unique package id, lowercase (e.g. com.yourname.tools)"
+        required: true
+        default: "com.hydr0.tools"
+      primary_color:
+        description: "Brand color, hex (#RRGGBB) -- used for the auto-generated icon only"
+        required: true
+        default: "#00B4FF"
+      icon_url:
+        description: "URL to a 512x512 PNG for the launcher icon/TV banner (optional; initials icon is generated if blank)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+
+      - name: Python deps for branding script
+        run: pip install pillow
+
+      - name: Create Android project shell
+        run: |
+          set -e
+          ORG="${{ inputs.package_id }}"
+          PROJ="${ORG##*.}"; ORG="${ORG%.*}"
+          mkdir -p build && cd build
+          flutter create --org "$ORG" --project-name "$PROJ" --platforms android proj
+          rm -rf proj/lib proj/test
+          cp -r ../app/lib proj/lib
+          cp -r ../app/assets proj/assets
+          cp ../app/pubspec.yaml proj/pubspec.yaml
+          sed -i "s/^name: .*/name: $PROJ/" proj/pubspec.yaml
+
+      - name: Apply branding
+        run: |
+          python3 tools/brand.py --project build/proj \
+            --app-name "${{ inputs.app_name }}" \
+            --package "${{ inputs.package_id }}" \
+            --color "${{ inputs.primary_color }}" \
+            --icon "${{ inputs.icon_url }}"
+
+      - name: Build APK
+        working-directory: build/proj
+        run: |
+          flutter pub get
+          flutter --version
+          for g in android/app/build.gradle android/app/build.gradle.kts; do
+            [ -f "$g" ] && sed -i '0,/^android {/s//android {\n    packaging { jniLibs { useLegacyPackaging = true } }/' "$g"
+          done
+          # Every build gets a higher versionCode from the run number, so
+          # Android always treats the next APK as an update.
+          flutter build apk --release --target-platform android-arm,android-arm64 \
+            --build-number=${{ github.run_number }} --build-name=1.0.${{ github.run_number }} \
+            --split-debug-info=build/symbols
+          cp build/app/outputs/flutter-apk/app-release.apk ../universal.apk
+          flutter build apk --release --split-per-abi --split-debug-info=build/symbols \
+            --build-number=${{ github.run_number }} --build-name=1.0.${{ github.run_number }}
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk ../arm.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk ../arm64.apk
+          (cd build/symbols && zip -q -r ../../../../symbols-${{ github.run_number }}.zip .)
+
+      - name: Sign APK
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          set -e
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > release.jks
+            PASS="$KEYSTORE_PASSWORD"; ALIAS="${KEY_ALIAS:-release}"
+          else
+            echo "::warning::No KEYSTORE_B64 secret set -- using a throwaway key. You'll have to uninstall before installing a future build. Add the same three secrets you use for HyDr02 (or a fresh keystore) to this repo -- see README."
+            PASS="changeit"; ALIAS="release"
+            keytool -genkeypair -v -keystore release.jks -alias "$ALIAS" -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$PASS" -keypass "$PASS" -dname "CN=${{ inputs.app_name }}, O=${{ inputs.package_id }}"
+          fi
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          SAFE=$(echo "${{ inputs.app_name }}" | tr -cd '[:alnum:]' )
+          OUT="${SAFE:-app}-tv.apk"
+          for pair in "build/universal.apk:$OUT" "build/arm.apk:${SAFE:-app}-tv-arm.apk" "build/arm64.apk:${SAFE:-app}-tv-arm64.apk"; do
+            SRC="${pair%%:*}"; DST="${pair##*:}"
+            "$BT/apksigner" sign --ks release.jks --ks-pass "pass:$PASS" --key-pass "pass:$PASS" --ks-key-alias "$ALIAS" \
+              --out "$DST" "$SRC"
+            "$BT/apksigner" verify "$DST"
+            ls -la "$DST"
+          done
+          echo "APK_NAME=$OUT" >> "$GITHUB_ENV"
+          echo "APK_ARM=${SAFE:-app}-tv-arm.apk" >> "$GITHUB_ENV"
+          echo "APK_ARM64=${SAFE:-app}-tv-arm64.apk" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APK_NAME }}
+          path: ${{ env.APK_NAME }}
+
+      - name: Publish as GitHub Release (stable download URL for Downloader)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: ${{ inputs.app_name }} build ${{ github.run_number }}
+          files: |
+            ${{ env.APK_NAME }}
+            ${{ env.APK_ARM }}
+            ${{ env.APK_ARM64 }}
+            symbols-${{ github.run_number }}.zip
+
+      - name: Refresh "latest" release (stable URL that never changes)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: HyDr0Tools-latest
+          name: ${{ inputs.app_name }} -- latest (build ${{ github.run_number }})
+          make_latest: false
+          overwrite_files: true
+          files: |
+            ${{ env.APK_NAME }}
+            ${{ env.APK_ARM }}
+            ${{ env.APK_ARM64 }}
