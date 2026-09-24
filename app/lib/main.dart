@@ -81,7 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _checkForUpdates() async {
     setState(() => _status = 'Checking for HyDr0 Tools updates…');
     try {
-      final update = await SelfUpdate.check();
+      final update = await SelfUpdateService.check();
       if (update == null) {
         if (mounted) setState(() => _status = 'HyDr0 Tools is up to date.');
         return;
@@ -100,7 +100,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       if (go != true) return;
       setState(() { _busy = true; _progress = 0; _status = 'Downloading update…'; });
-      await SelfUpdate.downloadAndInstall(update, onProgress: (p) {
+      await SelfUpdateService.downloadAndInstall(update, onProgress: (p) {
         if (mounted) setState(() => _progress = p);
       });
       if (mounted) setState(() => _status = 'Installer launched -- finish the update on screen.');
