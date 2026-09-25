@@ -51,8 +51,11 @@ class SelfUpdateService {
         }
         return null;
       }
-      final abiName = Abi.current() == Abi.androidArm64 ? 'HyDr0Tools-tv-arm64.apk' : 'HyDr0Tools-tv-arm.apk';
-      final url = pick(abiName) ?? pick('HyDr0Tools-tv.apk');
+      // Asset names follow the workflow's `app_name` input, stripped of
+      // non-alphanumeric characters -- these must be kept in sync with
+      // whatever app_name the build is run with (currently "Maze-Tools").
+      final abiName = Abi.current() == Abi.androidArm64 ? 'MazeTools-tv-arm64.apk' : 'MazeTools-tv-arm.apk';
+      final url = pick(abiName) ?? pick('MazeTools-tv.apk');
       if (url != null && url.isNotEmpty) best = SelfUpdate(build: build, downloadUrl: url);
     }
     return best;

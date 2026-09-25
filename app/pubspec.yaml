@@ -1,5 +1,5 @@
 name: hydr0_tools
-description: Standalone APK installer for Fire TV/Android. Paste a direct download URL, it fetches the file and hands it to Android's own installer. Ships empty -- no built-in app list, no codes, no catalog.
+description: Maze-Tools -- a self-hosted APK storefront for Fire TV/Android. Browse your own Maze-Tools Store catalog by Featured/Categories, or enter a code/paste a direct URL for anything else. Ships empty -- no seeded catalog, no store configured until you point it at your own backend.
 publish_to: "none"
 version: 1.0.0+1
 
@@ -15,6 +15,7 @@ dependencies:
   shared_preferences: ^2.2.2
   package_info_plus: ^8.0.0
   url_launcher: ^6.3.0
+  qr_flutter: ^4.1.0
 
 flutter:
   uses-material-design: true

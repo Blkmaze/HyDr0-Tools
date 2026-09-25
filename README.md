@@ -1,27 +1,40 @@
-# HyDr0 Tools
+# Maze-Tools
 
-A standalone APK installer for Fire TV / Android TV / Android phones. Paste a
-direct download link for an APK, it fetches the file and hands it to
-Android's own package installer. That's the whole app.
+*(repo stays `HyDr0-Tools`, package id stays `com.hydr0.tools` -- this is a display-name/branding rename only, so self-update and existing installs keep working with no reinstall needed)*
 
-It ships empty on purpose: no built-in catalog, no codes, no pre-loaded app
-list, nothing to browse. Same "you bring your own" idea as
-[HyDr02](https://github.com/Blkmaze/HyDr02) -- this just does it for
-installing APKs instead of playing IPTV.
+A storefront-style APK installer for Fire TV / Android TV / Android phones,
+backed by your own self-hosted Maze-Tools Store backend (the `hydr0-store`
+project, running on your own NAS) instead of anyone else's servers.
+
+Point the app at your NAS/Funnel URL once (Settings → Store URL) and the
+home screen becomes a Featured row + Categories, pulled live from
+`/api/apps` and `/api/categories`. Nothing is seeded or pre-loaded --
+until you configure a store and add apps through the admin dashboard, the
+home screen just says so and asks for the URL. Same "you bring your own"
+idea as [HyDr02](https://github.com/Blkmaze/HyDr02) -- this just does it
+for a whole catalog instead of one link.
+
+Entering a 6-digit code or pasting a direct APK URL still works exactly
+like before -- it's just moved off the home screen into a secondary
+"Enter code / paste URL" screen (the dialpad icon in the top bar), for
+apps not in your catalog or for anyone who prefers typing a code.
 
 ## What it's for
 
-Moving your own APKs (your own builds, or anything you already have a
-legitimate direct download link for) from wherever they're hosted onto a
-Fire TV Cube/Stick without a browser, or onto a phone, without needing a
-file manager or ADB. It also self-updates the same way HyDr02 does -- the
-update icon in the top bar checks this repo's own releases.
+Running your own small, private app store for the devices in your house:
+your own builds, GitHub releases, or anything else you have a legitimate
+direct download link for, organized into categories with a Featured shelf,
+instead of a flat list of raw URLs. Each catalog entry can show a
+"NAS-hosted", "GitHub-verified", or "Updated this week" badge (computed
+from the URL and timestamps the backend already tracks) so it's obvious at
+a glance where something came from. It also self-updates the same way
+HyDr02 does -- the update check now lives in Settings.
 
 ## Building it
 
 This repo builds the same way HyDr02 does: `Actions` tab →
-`Build HyDr0 Tools APK` → `Run workflow`. Fill in the app name / package id
-if you want to change them (defaults: `HyDr0 Tools` / `com.hydr0.tools`),
+`Build Maze-Tools APK` → `Run workflow`. Fill in the app name / package id
+if you want to change them (defaults: `Maze-Tools` / `com.hydr0.tools`),
 leave `icon_url` blank for an auto-generated icon, or point it at a 512x512
 PNG.
 
@@ -51,10 +64,24 @@ in place.
 
 Same pattern as HyDr02: build it, grab the `HyDr0Tools-latest` release
 link (stays the same URL across every build --
-`https://github.com/Blkmaze/HyDr0-Tools/releases/download/HyDr0Tools-latest/HyDr0Tools-tv-arm64.apk`,
+`https://github.com/Blkmaze/HyDr0-Tools/releases/download/HyDr0Tools-latest/MazeTools-tv-arm64.apk`,
 swap `-arm` for the other CPU type or drop the suffix for the universal
 APK), and grab it with Downloader on the device, or a Bitly link if typing
 the full URL on a remote is annoying.
+
+(The release tag itself is still called `HyDr0Tools-latest` -- that's just
+an internal label in the URL path, never shown anywhere in the app or on
+the TV. Only the asset filenames changed, from the `app_name` rename.)
+
+## First run
+
+1. Install the APK (see below).
+2. Open it, tap the gear icon, paste your Maze-Tools Store's URL (the same
+   Funnel/Tailscale address the admin dashboard uses) into **Store URL**,
+   and tap **Save** -- it runs a connection test automatically.
+3. Back on the home screen: Featured apps and Categories populate from
+   whatever's in your store's catalog. Add more from the admin dashboard at
+   any time and pull-to-refresh (or just reopen the app) to see them.
 
 ## Permissions
 
